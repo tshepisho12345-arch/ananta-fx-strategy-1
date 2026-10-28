@@ -87,7 +87,7 @@ jobs:
         print(scores_df.to_string(index=False))
 
         # Send to Discord
-        webhook_url = "https://discord.com/api/webhooks/1565023026875990159/2RWdkd4JfVqIJUBeQto-ryagPfubBRlDo9dAEQQRJn3TCxPNoetomMYKijFXnt0jMRq"
+        webhook_url = "https://discord.com/api/webhooks/1560470492480143393/ZgVfYsadrKnmrgyVw2AtURcCoAwdfWiQCNegidOEE7d16hHkdv0ClpBNwunOj2FP1Cg5" 
         table_str = scores_df.to_string(index=False)
         report = f"🚨 **ANANTA FX Strategy Signal Update** 🚨\n\n🟢 **LONG Candidates:** {longs}\n🔴 **SHORT Candidates:** {shorts}\n\n```{table_str}```"
         response = requests.post(webhook_url, json={"content": report})
