@@ -8,11 +8,6 @@ on:
 jobs:
   run-strategy:
     runs-on: ubuntu-latest
-    
-    # Set the working directory for all steps in this job
-    defaults:
-      run:
-        working-directory: ./ananta-fx-strategy-1
 
     steps:
     - name: Check out repository
