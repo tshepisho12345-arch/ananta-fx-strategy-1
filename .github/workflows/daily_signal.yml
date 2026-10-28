@@ -10,9 +10,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check out repository
-      uses: actions/checkout@v3
-
     - name: Set up Python 3.10
       uses: actions/setup-python@v4
       with:
@@ -21,8 +18,70 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install pandas numpy pandas-datareader requests
 
-    - name: Execute ANANTA Engine
+    - name: Execute ANANTA Strategy
       run: |
-        python src/main.py
+        python -c '
+        import pandas as pd
+        import pandas_datareader.data as web
+        import datetime
+        import numpy as np
+
+        print("--- ANANTA FX STRATEGY PIPELINE ---")
+        BOND_TICKERS = {
+            "USD": "DGS10",
+            "EUR": "IRLTLT01DEM156N",
+            "GBP": "IRLTLT01GBM156N",
+            "JPY": "IRLTLT01JPM156N",
+            "CAD": "IRLTLT01CAM156N",
+            "AUD": "IRLTLT01AUM156N"
+        }
+
+        end_date = datetime.datetime.today()
+        start_date = end_date - datetime.timedelta(days=365)
+        
+        data = {}
+        for currency, ticker in BOND_TICKERS.items():
+            try:
+                df = web.DataReader(ticker, "fred", start_date, end_date)
+                data[currency] = df[ticker]
+            except Exception as e:
+                print(f"Error fetching {currency}: {e}")
+                
+        yields_df = pd.DataFrame(data).ffill().dropna()
+        print("Latest Bond Yields (%):")
+        print(yields_df.tail())
+
+        currencies = list(yields_df.columns)
+        sub_signals = {}
+        ma_window = 20
+
+        for i in range(len(currencies)):
+            for j in range(i + 1, len(currencies)):
+                c1, c2 = currencies[i], currencies[j]
+                pair = f"{c1}/{c2}"
+                diff = yields_df[c1] - yields_df[c2]
+                ma = diff.rolling(window=ma_window).mean()
+                sub_signal = (diff - ma) / ma.abs()
+                sub_signals[pair] = sub_signal.iloc[-1]
+
+        sub_sig_series = pd.Series(sub_signals).dropna()
+        abs_median = sub_sig_series.abs().median()
+        filtered_signals = sub_sig_series[sub_sig_series.abs() >= abs_median]
+
+        currency_scores = {c: 0 for c in currencies}
+        for pair, val in filtered_signals.items():
+            c1, c2 = pair.split("/")
+            if val > 0:
+                currency_scores[c1] += 1
+                currency_scores[c2] -= 1
+            else:
+                currency_scores[c1] -= 1
+                currency_scores[c2] += 1
+
+        scores_df = pd.DataFrame(list(currency_scores.items()), columns=["Currency", "ANANTA_Score"]).sort_values(by="ANANTA_Score", ascending=False)
+
+        print("\n--- FINAL CURRENCY RANKINGS ---")
+        print(scores_df.to_string(index=False))
+        '
