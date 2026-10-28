@@ -20,13 +20,13 @@ jobs:
         python -m pip install --upgrade pip
         pip install pandas numpy pandas-datareader requests
 
-    - name: Execute ANANTA Strategy
+    - name: Execute ANANTA Strategy & Notify Discord
       run: |
         python -c '
         import pandas as pd
         import pandas_datareader.data as web
         import datetime
-        import numpy as np
+        import requests
 
         print("--- ANANTA FX STRATEGY PIPELINE ---")
         BOND_TICKERS = {
@@ -50,8 +50,6 @@ jobs:
                 print(f"Error fetching {currency}: {e}")
                 
         yields_df = pd.DataFrame(data).ffill().dropna()
-        print("Latest Bond Yields (%):")
-        print(yields_df.tail())
 
         currencies = list(yields_df.columns)
         sub_signals = {}
@@ -82,6 +80,20 @@ jobs:
 
         scores_df = pd.DataFrame(list(currency_scores.items()), columns=["Currency", "ANANTA_Score"]).sort_values(by="ANANTA_Score", ascending=False)
 
+        longs = scores_df[scores_df["ANANTA_Score"] > 0]["Currency"].tolist()
+        shorts = scores_df[scores_df["ANANTA_Score"] < 0]["Currency"].tolist()
+
         print("\n--- FINAL CURRENCY RANKINGS ---")
         print(scores_df.to_string(index=False))
+
+        # Send to Discord
+        webhook_url = "https://discord.com/api/webhooks/1565023026875990159/2RWdkd4JfVqIJUBeQto-ryagPfubBRlDo9dAEQQRJn3TCxPNoetomMYKijFXnt0jMRq"
+        report = (
+            "🚨 **ANANTA FX Strategy Signal Update** 🚨\n\n"
+            f"🟢 **LONG Candidates:** {", ".join(longs)}\n"
+            f"🔴 **SHORT Candidates:** {", ".join(shorts)}\n\n"
+            f"```\n{scores_df.to_string(index=False)}\n```"
+        )
+        response = requests.post(webhook_url, json={"content": report})
+        print(f"Discord notification status: {response.status_code}")
         '
